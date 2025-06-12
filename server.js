@@ -149,10 +149,12 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start the server
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📡 Health check available at http://localhost:${PORT}/health`);
-});
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running on http://localhost:${PORT}`);
+    console.log(`📡 Health check available at http://localhost:${PORT}/health`);
+  });
+}
 
 export default app; 
