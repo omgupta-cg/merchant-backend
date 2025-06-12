@@ -1,7 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import fs from 'fs/promises';
-import path from 'path';
 import jwt from 'jsonwebtoken';
 
 const app = express();
@@ -12,23 +10,20 @@ app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Async function to read JWKS file
-const readJWKSAsync = async () => {
-  const jwksPath = path.join(process.cwd(), 'jwks', 'jwks.json');
-  const data = await fs.readFile(jwksPath, 'utf8');
-  return JSON.parse(data);
+// Get JWKS from environment variable
+const getJWKS = () => {
+  if (!process.env.JWKS_JSON) {
+    throw new Error('JWKS_JSON environment variable is not set');
+  }
+  return JSON.parse(process.env.JWKS_JSON);
 };
 
-// Async function to read private key
-const readPrivateKeyAsync = async () => {
-  const privateKeyPath = path.join(process.cwd(), 'jwks', 'private.pem');
-  return await fs.readFile(privateKeyPath, 'utf8');
-};
-
-// Async function to read public key (optional - for verification)
-const readPublicKeyAsync = async () => {
-  const publicKeyPath = path.join(process.cwd(), 'jwks', 'public.pem');
-  return await fs.readFile(publicKeyPath, 'utf8');
+// Get private key from environment variable
+const getPrivateKey = () => {
+  if (!process.env.PRIVATE_KEY) {
+    throw new Error('PRIVATE_KEY environment variable is not set');
+  }
+  return process.env.PRIVATE_KEY;
 };
 
 // Root route
@@ -37,6 +32,7 @@ app.get('/', (req, res) => {
     message: 'Welcome to Merchant Backend API',
     status: 'Server is running successfully',
     timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
     endpoints: {
       root: 'GET /',
       health: 'GET /health',
@@ -59,12 +55,9 @@ app.post('/generate-token', async (req, res) => {
       });
     }
 
-    // Read private key and JWKS for key ID
-    const [privateKey, jwks] = await Promise.all([
-      readPrivateKeyAsync(),
-      readJWKSAsync()
-    ]);
-
+    // Get private key and JWKS
+    const privateKey = getPrivateKey();
+    const jwks = getJWKS();
     const kid = jwks.keys[0].kid; // Get key ID from JWKS
 
     // JWT payload
@@ -101,7 +94,8 @@ app.post('/generate-token', async (req, res) => {
     console.error('Error generating token:', error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Unable to generate token'
+      message: 'Unable to generate token',
+      details: error.message
     });
   }
 });
@@ -109,7 +103,7 @@ app.post('/generate-token', async (req, res) => {
 // JWKS endpoint for JWT verification
 app.get('/.well-known/jwks.json', async (req, res) => {
   try {
-    const jwks = await readJWKSAsync();
+    const jwks = getJWKS();
     
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
@@ -118,18 +112,37 @@ app.get('/.well-known/jwks.json', async (req, res) => {
     console.error('Error serving JWKS:', error);
     res.status(500).json({
       error: 'Internal Server Error',
-      message: 'Unable to load JWKS'
+      message: 'Unable to load JWKS',
+      details: error.message
     });
   }
 });
 
 // Health check endpoint
-app.get('/health', (req, res) => {
-  res.json({
-    status: 'OK',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString()
-  });
+app.get('/health', async (req, res) => {
+  try {
+    // Check if environment variables are available
+    const hasPrivateKey = !!process.env.PRIVATE_KEY;
+    const hasJWKS = !!process.env.JWKS_JSON;
+
+    res.json({
+      status: hasPrivateKey && hasJWKS ? 'OK' : 'ERROR',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      environment: {
+        hasPrivateKey,
+        hasJWKS,
+        nodeEnv: process.env.NODE_ENV
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'ERROR',
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString(),
+      error: error.message
+    });
+  }
 });
 
 // Handle 404 for undefined routes
@@ -142,10 +155,11 @@ app.use('*', (req, res) => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+  console.error('Unhandled error:', err.stack);
   res.status(500).json({
     error: 'Internal Server Error',
-    message: 'Something went wrong!'
+    message: 'Something went wrong!',
+    details: err.message
   });
 });
 
@@ -157,4 +171,4 @@ if (process.env.NODE_ENV !== 'production') {
   });
 }
 
-export default app; 
+export default app;
