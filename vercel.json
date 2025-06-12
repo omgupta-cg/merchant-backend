@@ -3,7 +3,7 @@
     "name": "merchant-backend",
     "functions": {
       "server.js": {
-        "runtime": "@vercel/node",
+        "runtime": "@vercel/node@18.x",
         "maxDuration": 10
       }
     },
