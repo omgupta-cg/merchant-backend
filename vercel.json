@@ -1,24 +1,19 @@
 {
-  "version": 2,
-  "name": "merchant-backend",
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    }
-  ],
-  "routes": [
-    {
-      "src": "/(.*)",
-      "dest": "/server.js"
-    }
-  ],
-  "env": {
-    "NODE_ENV": "production"
-  },
-  "functions": {
-    "server.js": {
-      "maxDuration": 10
+    "version": 2,
+    "name": "merchant-backend",
+    "functions": {
+      "server.js": {
+        "runtime": "@vercel/node",
+        "maxDuration": 10
+      }
+    },
+    "routes": [
+      {
+        "src": "/(.*)",
+        "dest": "/server.js"
+      }
+    ],
+    "env": {
+      "NODE_ENV": "production"
     }
   }
-} 
