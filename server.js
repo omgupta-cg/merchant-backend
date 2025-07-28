@@ -49,7 +49,7 @@ app.get('/', (req, res) => {
 // Token generation endpoint
 app.post('/generate-token', async (req, res) => {
   try {
-    const { user_id = '123456', bot_id = '0376239051105167' } = req.body;
+    const { user_id , bot_id  } = req.body;
     
     // Validate required fields
     if (!user_id || !bot_id) {
